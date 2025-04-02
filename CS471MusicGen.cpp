@@ -2,7 +2,7 @@
 #include <vector>
 #include <string>
 using namespace std;
-
+//comment to test the new github commit
 struct Note {
     int pitch;
     int length;
