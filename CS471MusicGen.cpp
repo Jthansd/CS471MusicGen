@@ -109,7 +109,12 @@ int VScore(const vector<Note>& m) {  // Pass by const reference
                 upNdown += 1;
             } else {
                 up = false;
-                score += 50 / upNdown;
+                if(upNdown < 3){
+                    score += 10;
+                }
+                else{
+                    score += 10 / upNdown;
+                }
                 upNdown = 1;
             }
         } else {
@@ -117,12 +122,22 @@ int VScore(const vector<Note>& m) {  // Pass by const reference
                 upNdown += 1;
             } else {
                 up = true;
-                score += 25 / upNdown;
+                if(upNdown < 3){
+                    score += 10;
+                }
+                else{
+                    score += 10 / upNdown;
+                }
                 upNdown = 1;
             }
         }
     }
-    score += 50 / upNdown;
+    if(upNdown < 3){
+        score += 10;
+    }
+    else{
+        score += 10 / upNdown;
+    }
     return score;
 }
 
