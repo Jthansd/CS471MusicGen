@@ -149,7 +149,7 @@ int FitnessScore(const vector<Note>& m) {
 }
 
 vector<Note> generateMelody(int size) {
-    
+
     srand(static_cast<unsigned int>(time(0)));
     int p;
     int l;
@@ -203,7 +203,7 @@ vector<Note> selectParent(const vector<vector<Note>>& population, const vector<i
 // 2. With 50% probability, pick the note from parent1; otherwise, pick from parent2.
 // This creates a mix of both parent melodies in the child.
 vector<Note> crossover(const vector<Note>& parent1, const vector<Note>& parent2){
-    
+
     vector<Note> child;
     for (int i = 0; i < parent1.size(); i++){
         if (rand() % 2 == 0){ // 50% chance to pick from parent1 or parent2
@@ -233,80 +233,65 @@ void mutate(vector<Note>& melody, int mutationRate = 10){
 // 1. **Parent Selection**: Choose two parent melodies from the population based on their fitness scores.
 // 2. **Crossover**: Combine the selected parents' melodies to create child melodies.
 // 3. **Mutation**: Introduce small random changes to the child melodies to maintain genetic diversity.
-void evolveMelodies(int populationSize = 10, int generations = 20, int melodySize = 8){
-    srand(time(0)); // Seed the random number generator
+
+void evolveMelodies(int populationSize = 10, int generations = 10, int melodySize = 8) {
+    srand(time(0));
     vector<vector<Note>> population;
 
-    //step 1: generate initial population
-    for (int i = 0; i < populationSize; i++){
+    // Step 1: Generate initial population
+    for (int i = 0; i < populationSize; i++) {
         population.push_back(generateMelody(melodySize));
     }
-    //step 2: evolve the population over generations
-    for (int gen = 0; gen < generations; gen++){
-        // evaluate fitness of each melody
+
+    // Step 2: Evolution
+    for (int gen = 0; gen < generations; gen++) {
         vector<int> fitnessScores;
-        for (const auto& melody : population){
+        for (const auto& melody : population) {
             fitnessScores.push_back(FitnessScore(melody));
         }
-        // create a new generation
-        vector<vector<Note>> newPopulation;
-        // elitism: keep the best melody
-        int bestIndex = 0;
-        for (int i = 1; i < fitnessScores.size(); i++){
-            if(fitnessScores[i] > fitnessScores[bestIndex]){
-                bestIndex = i;
-            }
-            newPopulation.push_back(population[bestIndex]); // save the best melody
-            // fill the rest of the new population
-            while(newPopulation.size() < populationSize){
-                // select parents using roulette wheel selection
-                vector<Note> parent1 = selectParent(population, fitnessScores);
-                vector<Note> parent2 = selectParent(population, fitnessScores);
-                // perform crossover
-                vector<Note> child = crossover(parent1, parent2);
-                // mutate the child
-                mutate(child);
-                // add the child to the new population
-                newPopulation.push_back(child);
-            }
-            //replace the old population with the new one
-            population = newPopulation;
-            //print best melody of the generation
-            cout << "Generation " << gen + 1 << ": Best Melody Fitness = " << fitnessScores[bestIndex] << endl;
 
+        // Print parents and their fitness
+        cout << "\n\nGeneration " << gen + 1 << ":\n";
+        for (int i = 0; i < populationSize; i++) {
+            cout << "Parent " << i + 1 << ": ";
+            for (auto note : population[i]) printNote(note);
+            cout << " | Score: " << fitnessScores[i] << endl;
         }
-        // Print the best melody of the generation
+
+        // New generation
+        vector<vector<Note>> newPopulation;
+
+        // Elitism: Keep best melody
         int bestIndex = 0;
-        for (int i = 1; i < fitnessScores.size(); i++){
-            if(fitnessScores[i] > fitnessScores[bestIndex]){
-                bestIndex = i;
-            }
+        for (int i = 1; i < populationSize; i++) {
+            if (fitnessScores[i] > fitnessScores[bestIndex]) bestIndex = i;
         }
-        vector<Note> bestMelody = population[bestIndex];
-        vector<string> bestNotation = readNotation(bestMelody);
-        // display best melody
-        cout << "Best Melody: " << endl;
-        for (int i = 0; i < bestMelody.size() - 1; i++){
-            printNote(bestMelody[i]);
-            if (i < bestMelody.size() - 1) {
-                cout << ", ";
-            }
-            // Display the ABC notation
-            for(int i = 0; i < bestNotation.size() - 1; i++){
-                cout << bestNotation[i] << ", ";
-                if(i < bestNotation.size() - 1){
-                    cout << ", ";
-                }
-                //show fitness score
-                cout << "\nFinal Fitness Score: " << FitnessScore(bestMelody) << endl;
-            }
+        newPopulation.push_back(population[bestIndex]);
+
+        // Generate children
+        while (newPopulation.size() < populationSize) {
+            vector<Note> parent1 = selectParent(population, fitnessScores);
+            vector<Note> parent2 = selectParent(population, fitnessScores);
+            vector<Note> child = crossover(parent1, parent2);
+            mutate(child);
+            newPopulation.push_back(child);
         }
+
+        population = newPopulation;
+
+        // Show best melody notation
+        vector<string> bestNotation = readNotation(population[0]);
+        cout << "\nBest Melody (Gen " << gen + 1 << "):\n";
+        for (auto s : bestNotation) cout << s << ", ";
+        cout << "\nFitness Score: " << FitnessScore(population[0]) << endl;
     }
 }
+
+
 int main() {
     vector<Note> melody1 = generateMelody(8);
     vector<string> melody1ABC = readNotation(melody1);
-    
+
     // Print the melody using printNote
     cout << "Melody: ";
     for (int i = 0; i < melody1.size() - 1; i++) {
@@ -314,22 +299,22 @@ int main() {
         cout << ", ";
     }
     printNote(melody1[melody1.size() - 1]);  // Print the last note without the trailing comma
-    
+
     // Get the notation as a vector of strings
     vector<string> ABCMelody = readNotation(melody1);
-    
+
     // Print the notation
     cout << "\nABC Notation:" << endl;
     for (int i = 0; i < melody1ABC.size() - 1; i++) {
         cout << melody1ABC[i] << ", ";
     }
     cout << melody1ABC[melody1ABC.size() - 1];
-    
+
     cout << "\nIScore = " << IScore(melody1);
     cout << "\nRScore = " << RScore(melody1);
     cout << "\nVScore = " << VScore(melody1);
     cout << "\nTotal Score: " << FitnessScore(melody1);
-    
+
     // Call the evolveMelodies function to start the evolution process
     evolveMelodies();
 
