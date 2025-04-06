@@ -136,35 +136,71 @@ int VScore(const vector<Note>& m) {
     return score;
 }
 
-int FitnessScore(const vector<Note>& m) {
-    int IWeight = 1, RWeight = 1, VWeight = 1;
-    return ((IWeight * IScore(m) + RWeight * RScore(m) + VWeight * VScore(m)) / m.size());
+int KScore(const vector<Note>& m, int k) {
+    int score = 0;
+    int scale[7] = {0, 2, 4, 5, 7, 9, 11};  // Degrees of the major scale
+
+    // Shift scale based on key (e.g., if key is 1, A major, the scale is [0, 2, 4, 5, 7, 9, 11] etc.)
+    for (int i = 0; i < m.size(); i++) {
+        int pitchInScale = m[i].pitch % 12;
+        for (int j = 0; j < 7; j++) {
+            // Check if pitchInScale matches any degree in the scale
+            if (pitchInScale == (scale[j] + (k - 1)) % 12) {
+                score += 10;
+                break;  // If we find a match, no need to check other scale degrees
+            }
+        }
+    }
+    return score;
+}
+
+
+int FitnessScore(const vector<Note>& m, int key) {
+    int IWeight = 1, RWeight = 1, VWeight = 1, KWeight = 1;
+    return((IWeight * IScore(m) + RWeight * RScore(m) + VWeight * VScore(m) + KWeight * KScore(m, key))/m.size());
 }
 
 // =========================
 // Updated generateMelody with pitch range limits
 // =========================
-vector<Note> generateMelody(int size, int minPitch, int maxPitch) {
+vector<Note> generateMelody(int size, int minPitch, int maxPitch, int key) {
     srand(static_cast<unsigned int>(time(0)));
     int p, l;
-    int lengths[] = {1, 2, 4, 8, 16};
+    int const LSIZE = 3;
+    int lengths[LSIZE] = {2, 4, 8};
     vector<Note> melody;
+    int prevPitch;
+    int pitchOffset;
 
-    p = rand() % (maxPitch - minPitch + 1) + minPitch;
-    l = lengths[rand() % 5];
-    melody.push_back(Note(p, l));
+    // Calculate the base pitch of the key
+    int basePitch = key - 1;  // e.g., key 1 = A, key 2 = Bb, etc.
 
-    for (int i = 1; i < size; i++) {
-        int prevPitch = melody[i - 1].pitch;
-        int pitchOffset = rand() % 25 - 12;
+    // Randomly select an octave for the first note within the specified range
+    int octave = rand() % ((maxPitch / 12) - (minPitch / 12) + 1) + (minPitch / 12); 
+    p = basePitch + 12 * octave;  // Adjust base pitch with the random octave
+    l = lengths[rand() % 3];  // Random length for the note
+    melody.push_back(Note(p, l));  // Add the first note
+
+    // Generate the rest of the melody
+    for (int i = 1; i < size - 1; i++) {
+        prevPitch = melody[i - 1].pitch;
+        pitchOffset = rand() % 15 - 7;   // range: -7 to +7
         p = prevPitch + pitchOffset;
-        p = max(minPitch, min(maxPitch, p));
-        l = lengths[rand() % 5];
-        melody.push_back(Note(p, l));
+        p = max(minPitch, min(maxPitch, p));  // Ensure pitch is within the allowed range
+        l = lengths[rand() % 3];  // Random length for the note
+        melody.push_back(Note(p, l));  // Add the next note
     }
+
+    // Randomly select an octave for the last note within the specified range
+    octave = rand() % ((maxPitch / 12) - (minPitch / 12) + 1) + (minPitch / 12); 
+    p = basePitch + 12 * octave;  // Adjust base pitch with the random octave
+    l = lengths[rand() % 3];  // Random length for the note
+    melody.push_back(Note(p, l));  // Add the last note
 
     return melody;
 }
+
+
 
 vector<Note> selectParent(const vector<vector<Note>>& population, const vector<int>& fitnessScores){
     int totalFitness = 0;
@@ -187,27 +223,59 @@ vector<Note> crossover(const vector<Note>& parent1, const vector<Note>& parent2)
 }
 
 void mutate(vector<Note>& melody, int mutationRate = 10) {
-    int lengths[] = {1, 2, 4, 8, 16};
+    int lengths[] = {1, 2, 4, 8, 16}; // Note lengths: 1 = Whole, 2 = Half, 4 = Quarter, 8 = Eighth, 16 = Sixteenth
+    int pitchChange;
+    int currentLengthIndex;
+    int change;
+    const int maxAttempts = 100; // Maximum attempts to prevent infinite loop
+
     for (int i = 0; i < melody.size(); i++) {
         if (rand() % 100 < mutationRate) {
-            int pitchChange = rand() % 13 - 6;
-            melody[i].pitch += pitchChange;
-            melody[i].pitch = max(0, min(100, melody[i].pitch));
+            int attempts = 0;  // Counter for the number of attempts
 
-            int currentLengthIndex = find(begin(lengths), end(lengths), melody[i].length) - begin(lengths);
-            int change = rand() % 3 - 1;
-            currentLengthIndex = max(0, min(4, currentLengthIndex + change));
+            // Keep trying pitchChange until it's within allowed range relative to neighbor(s)
+            do {
+                pitchChange = rand() % 13 - 6; // range [-6, 6]
+                attempts++;
+                
+                // If we've attempted too many times, break out of the loop to avoid infinite looping
+                if (attempts > maxAttempts) {
+                    break;
+                }
+            } while (
+                (i < melody.size() - 1 && abs((melody[i].pitch + pitchChange) - melody[i + 1].pitch) > 7) ||
+                (i > 0 && abs((melody[i].pitch + pitchChange) - melody[i - 1].pitch) > 7)
+            );
+
+            // If we exited due to maxAttempts, skip this mutation for this note
+            if (attempts <= maxAttempts) {
+                melody[i].pitch += pitchChange;
+                melody[i].pitch = max(0, min(100, melody[i].pitch)); // Clamp to [0, 100]
+            }
+
+            // Mutate duration, but do not allow index 0 or 4 (whole or sixteenth)
+            currentLengthIndex = find(begin(lengths), end(lengths), melody[i].length) - begin(lengths);
+            // Limit change to +/-1, but ensuring that we do not change to index 0 (Whole) or index 4 (Sixteenth)
+            do {
+                change = rand() % 3 - 1; // -1, 0, or 1
+                currentLengthIndex = max(1, min(3, currentLengthIndex + change)); // Avoid index 0 and 4
+            } while (currentLengthIndex == 0 || currentLengthIndex == 4);
+            
             melody[i].length = lengths[currentLengthIndex];
         }
     }
 }
 
+
+
+
 // Evolve Function with range
-void evolveMelodies(int populationSize = 10, int generations = 20, int melodySize = 8) {
+void evolveMelodies(int populationSize, int generations, int melodySize, int key) {
     srand(time(0));
 
+    
     int minPitch = noteToPitch("F#", 3); // F#3
-    int maxPitch = noteToPitch("E", 6);  // E6
+    int maxPitch = noteToPitch("A", 5);  // E6
 
     vector<vector<Note>> population;
     vector<int> fitnessScores;
@@ -215,13 +283,13 @@ void evolveMelodies(int populationSize = 10, int generations = 20, int melodySiz
     vector<Note> parent1, parent2, child, bestMelody;
 
     for (int i = 0; i < populationSize; i++) {
-        population.push_back(generateMelody(melodySize, minPitch, maxPitch));
+        population.push_back(generateMelody(melodySize, minPitch, maxPitch, key));
     }
 
     for (int gen = 0; gen < generations; gen++) {
         fitnessScores.clear();
         for (const auto& melody : population)
-            fitnessScores.push_back(FitnessScore(melody));
+            fitnessScores.push_back(FitnessScore(melody, key));
 
         int bestIndex = max_element(fitnessScores.begin(), fitnessScores.end()) - fitnessScores.begin();
         bestMelody = population[bestIndex];
@@ -241,12 +309,38 @@ void evolveMelodies(int populationSize = 10, int generations = 20, int melodySiz
         cout << "\nGeneration " << gen + 1 << ": Best Melody Fitness = " << fitnessScores[bestIndex] << endl;
         cout << "Best Melody: ";
         readNotation(bestMelody);
-        cout << "\nFinal Fitness Score: " << FitnessScore(bestMelody) << endl;
+        cout << "\nFinal Fitness Score: " << FitnessScore(bestMelody, key) << endl;
     }
 }
 
 int main() {
-    evolveMelodies();
+    int key;
+    int length;
+    cout << "Welcome to the AI Music Creator!\nLet's customize our music to your taste :3\nFirst off, what Key would you like your music to be in?\n(1) A major\n(2) A#/Bb major\n(3) B major\n(4) C major\n(5) C#/Db major\n(6) D major\n(7) D#/Eb major\n(8) E major\n(9) F major\n(10) F#/Gb major\n(11) G major\n(12) G#/Ab major\nEnter a number" << endl;
+    cin >> key;
+
+    string pitchWithOctave = toLetter(key - 1);
+    
+    int parenPos = pitchWithOctave.find('(');
+
+    if (parenPos != -1) {
+        pitchWithOctave = pitchWithOctave.substr(0, parenPos);  // Get only the pitch name (before '(')
+    }
+
+    cout << "Good choice! Generating melodies in the key of " << pitchWithOctave << " major" << endl;
+
+    vector<Note> melody1 = {Note(0, 4), Note(2, 4), Note(4, 4), Note(5, 4), Note(7, 4), Note(9, 4), Note(11, 4)};
+
+    int I = IScore(melody1);
+    int R = RScore(melody1);
+    int V = VScore(melody1);
+    int K = KScore(melody1, key);
+    int score = FitnessScore(melody1, key);
+
+    cout <<"\nIScore = " << I << "\nRScore = " << R << "\nVscore = " << V << "\nKscore (Should be 70) = " << K << "\nTotal Score = " << score;
+    
+    /*
+    evolveMelodies(10, 20, 16, key);
 
     cout << "\n\nPitch Tests:\n";
     string note1 = "F#"; int octave1 = 3;
@@ -257,6 +351,7 @@ int main() {
 
     cout << note1 << octave1 << " -> Pitch: " << pitch1 << endl;
     cout << note2 << octave2 << " -> Pitch: " << pitch2 << endl;
+    */
 
     return 0;
 }
