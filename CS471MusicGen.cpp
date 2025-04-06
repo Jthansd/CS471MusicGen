@@ -7,6 +7,7 @@
 #include <iterator>   // For std::begin and std::end
 using namespace std;
 
+
 // Function to convert note name and octave to pitch number
 int noteToPitch(string note, int octave) {
     if (note == "Bb") note = "A#";
@@ -37,7 +38,11 @@ int noteToPitch(string note, int octave) {
 
     return pitch + (octave * 12);
 }
-
+// Constants
+const int MIN_PITCH = noteToPitch("F#", 3);  // F#3
+const int MAX_PITCH = noteToPitch("A", 5);   // A5
+const vector<int> VALID_LENGTHS = {2, 4, 8}; // Half, Quarter, Eighth notes
+const int MAX_PITCH_CHANGE = 7;              // Maximum interval between consecutive notes
 // Note structure
 struct Note {
     int pitch;
@@ -213,61 +218,46 @@ vector<Note> selectParent(const vector<vector<Note>>& population, const vector<i
     }
     return population.back();
 }
-
-vector<Note> crossover(const vector<Note>& parent1, const vector<Note>& parent2){
+vector<Note> crossover(const vector<Note>& parent1, const vector<Note>& parent2) {
     vector<Note> child;
-    for (int i = 0; i < parent1.size(); i++){
-        child.push_back(rand() % 2 == 0 ? parent1[i] : parent2[i]);
+    int split_point = rand() % parent1.size(); // Random split point
+    
+    // Take first part from parent1, second from parent2
+    for(int i = 0; i < split_point; i++) {
+        child.push_back(parent1[i]);
     }
+    for(int i = split_point; i < parent2.size(); i++) {
+        child.push_back(parent2[i]);
+    }
+    
     return child;
 }
 
 void mutate(vector<Note>& melody, int mutationRate = 10) {
-    int lengths[] = {1, 2, 4, 8, 16}; // Note lengths: 1 = Whole, 2 = Half, 4 = Quarter, 8 = Eighth, 16 = Sixteenth
-    int pitchChange;
-    int currentLengthIndex;
-    int change;
-    const int maxAttempts = 100; // Maximum attempts to prevent infinite loop
-
+    const vector<int> allowedLengths = {2, 4, 8}; // Only allow these lengths
+    
     for (int i = 0; i < melody.size(); i++) {
         if (rand() % 100 < mutationRate) {
-            int attempts = 0;  // Counter for the number of attempts
-
-            // Keep trying pitchChange until it's within allowed range relative to neighbor(s)
+            // Pitch mutation with neighbor constraints
+            int newPitch;
+            int attempts = 0;
             do {
-                pitchChange = rand() % 13 - 6; // range [-6, 6]
+                newPitch = melody[i].pitch + (rand() % (2*MAX_PITCH_CHANGE + 1) - MAX_PITCH_CHANGE);
+                newPitch = max(MIN_PITCH, min(MAX_PITCH, newPitch));
                 attempts++;
-                
-                // If we've attempted too many times, break out of the loop to avoid infinite looping
-                if (attempts > maxAttempts) {
-                    break;
-                }
             } while (
-                (i < melody.size() - 1 && abs((melody[i].pitch + pitchChange) - melody[i + 1].pitch) > 7) ||
-                (i > 0 && abs((melody[i].pitch + pitchChange) - melody[i - 1].pitch) > 7)
+                (attempts < 100) &&
+                ((i > 0 && abs(newPitch - melody[i-1].pitch) > MAX_PITCH_CHANGE) ||
+                 (i < melody.size()-1 && abs(newPitch - melody[i+1].pitch) > MAX_PITCH_CHANGE))
             );
-
-            // If we exited due to maxAttempts, skip this mutation for this note
-            if (attempts <= maxAttempts) {
-                melody[i].pitch += pitchChange;
-                melody[i].pitch = max(0, min(100, melody[i].pitch)); // Clamp to [0, 100]
-            }
-
-            // Mutate duration, but do not allow index 0 or 4 (whole or sixteenth)
-            currentLengthIndex = find(begin(lengths), end(lengths), melody[i].length) - begin(lengths);
-            // Limit change to +/-1, but ensuring that we do not change to index 0 (Whole) or index 4 (Sixteenth)
-            do {
-                change = rand() % 3 - 1; // -1, 0, or 1
-                currentLengthIndex = max(1, min(3, currentLengthIndex + change)); // Avoid index 0 and 4
-            } while (currentLengthIndex == 0 || currentLengthIndex == 4);
             
-            melody[i].length = lengths[currentLengthIndex];
+            if (attempts < 100) melody[i].pitch = newPitch;
+
+            // Length mutation (only allowed lengths)
+            melody[i].length = allowedLengths[rand() % allowedLengths.size()];
         }
     }
 }
-
-
-
 
 // Evolve Function with range
 void evolveMelodies(int populationSize, int generations, int melodySize, int key) {
@@ -318,7 +308,11 @@ int main() {
     int length;
     cout << "Welcome to the AI Music Creator!\nLet's customize our music to your taste :3\nFirst off, what Key would you like your music to be in?\n(1) A major\n(2) A#/Bb major\n(3) B major\n(4) C major\n(5) C#/Db major\n(6) D major\n(7) D#/Eb major\n(8) E major\n(9) F major\n(10) F#/Gb major\n(11) G major\n(12) G#/Ab major\nEnter a number" << endl;
     cin >> key;
-
+    // Input validation for key
+    while (key < 1 || key > 12) {
+        cout << "Invalid key! Please enter a number between 1 and 12: ";
+        cin >> key;
+    }
     string pitchWithOctave = toLetter(key - 1);
     
     int parenPos = pitchWithOctave.find('(');
@@ -339,7 +333,7 @@ int main() {
 
     cout <<"\nIScore = " << I << "\nRScore = " << R << "\nVscore = " << V << "\nKscore (Should be 70) = " << K << "\nTotal Score = " << score;
     
-    /*
+    
     evolveMelodies(10, 20, 16, key);
 
     cout << "\n\nPitch Tests:\n";
@@ -351,7 +345,7 @@ int main() {
 
     cout << note1 << octave1 << " -> Pitch: " << pitch1 << endl;
     cout << note2 << octave2 << " -> Pitch: " << pitch2 << endl;
-    */
+    
 
     return 0;
 }
