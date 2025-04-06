@@ -7,9 +7,8 @@
 #include <iterator>   // For std::begin and std::end
 using namespace std;
 
-// Function to convert note name (such as A, A#, Bb) and octave to pitch number (0 - 100)
+// Function to convert note name and octave to pitch number
 int noteToPitch(string note, int octave) {
-    // Normalize the note to handle enharmonics
     if (note == "Bb") note = "A#";
     if (note == "Db") note = "C#";
     if (note == "Eb") note = "D#";
@@ -17,9 +16,7 @@ int noteToPitch(string note, int octave) {
     if (note == "Gb") note = "F#";
     if (note == "Ab") note = "G#";
 
-    int pitch = -1;  // Default invalid pitch value
-
-    // Map note name to corresponding chromatic scale number
+    int pitch = -1;
     if (note == "A") pitch = 0;
     else if (note == "A#") pitch = 1;
     else if (note == "B") pitch = 2;
@@ -33,30 +30,26 @@ int noteToPitch(string note, int octave) {
     else if (note == "G") pitch = 10;
     else if (note == "G#") pitch = 11;
 
-    // If invalid note name is passed, return -1 to indicate error
     if (pitch == -1) {
         cerr << "Invalid note name: " << note << endl;
         return -1;
     }
 
-    // Return the pitch number, factoring in the octave
-    return pitch + (octave) * 12;
+    return pitch + (octave * 12);
 }
 
-// Structure to hold note data
+// Note structure
 struct Note {
     int pitch;
     int length;
-
     Note(int p, int l) : pitch(p), length(l) {}
 };
 
-// Function to print note in the format (pitch, length)
+// Printing helper
 void printNote(Note n) {
     cout << "(" << n.pitch << ", " << n.length << ")";
 }
 
-// Function to convert pitch to letter notation (A to G)
 string toLetter(int pitch) {
     string note[] = {"A", "Bb", "B", "C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab"};
     int indexN = pitch % 12;
@@ -64,7 +57,6 @@ string toLetter(int pitch) {
     return note[indexN] + "(" + to_string(indexO) + ")";
 }
 
-// Function to convert note length to a string (e.g., "4" for quarter note)
 string toLength(int l) {
     switch (l) {
         case 1: return "Whole";
@@ -76,20 +68,19 @@ string toLength(int l) {
     }
 }
 
-// Function to convert Note array to a vector of strings and print it
-void readNotation(const vector<Note>& m) {  // Pass by const reference
-    vector<string> abc;  // A single vector to hold the string representations of the notes
+void readNotation(const vector<Note>& m) {
+    vector<string> abc;
     for (int i = 0; i < m.size(); i++) {
-        abc.push_back(toLetter(m[i].pitch) + " " + toLength(m[i].length));  // Combine pitch and length into one string
+        abc.push_back(toLetter(m[i].pitch) + " " + toLength(m[i].length));
     }
     for (int i = 0; i < abc.size() - 1; i++) {
         cout << abc[i];
         cout << ", ";
     }
-    cout << abc[abc.size() - 1];  // Corrected this line to print the last element
+    cout << abc[abc.size() - 1];
 }
 
-int IScore(const vector<Note>& m) {  // Pass by const reference
+int IScore(const vector<Note>& m) {
     int score = 0;
     for (int i = 0; i < m.size() - 1; i++) {
         score += 12 - abs(m[i].pitch - m[i + 1].pitch) % 12;
@@ -97,18 +88,14 @@ int IScore(const vector<Note>& m) {  // Pass by const reference
     return score;
 }
 
-int RScore(const vector<Note>& m) {  // Pass by const reference
+int RScore(const vector<Note>& m) {
     int lengths[] = {1, 2, 4, 8, 16};
     int dif, length1, length2;
     int score = 0;
     for (int i = 0; i < m.size() - 1; i++) {
         for (int j = 0; j < 5; j++) {
-            if (lengths[j] == m[i].length) {
-                length1 = j;
-            }
-            if (lengths[j] == m[i + 1].length) {
-                length2 = j;
-            }
+            if (lengths[j] == m[i].length) length1 = j;
+            if (lengths[j] == m[i + 1].length) length2 = j;
         }
         dif = abs(length1 - length2);
         switch (dif) {
@@ -117,86 +104,61 @@ int RScore(const vector<Note>& m) {  // Pass by const reference
             case 2: score += 6; break;
             case 3: score += 4; break;
             case 4: score += 2; break;
-            default: break; // 0 score
         }
     }
     return score;
 }
 
-int VScore(const vector<Note>& m) {  // Pass by const reference
+int VScore(const vector<Note>& m) {
     int upNdown = 1;
-    bool up;
+    bool up = m[0].pitch < m[1].pitch;
     int score = 0;
-    if (m[0].pitch < m[1].pitch) {
-        up = true;
-    } else {
-        up = false;
-    }
     for (int i = 0; i < m.size() - 1; i++) {
-        if (up == true) {
+        if (up) {
             if (m[i].pitch < m[i + 1].pitch) {
-                upNdown += 1;
+                upNdown++;
             } else {
                 up = false;
-                if(upNdown < 3){
-                    score += 10;
-                }
-                else{
-                    score += 10 / upNdown;
-                }
+                score += upNdown < 3 ? 10 : 10 / upNdown;
                 upNdown = 1;
             }
         } else {
             if (m[i].pitch > m[i + 1].pitch) {
-                upNdown += 1;
+                upNdown++;
             } else {
                 up = true;
-                if(upNdown < 3){
-                    score += 10;
-                }
-                else{
-                    score += 10 / upNdown;
-                }
+                score += upNdown < 3 ? 10 : 10 / upNdown;
                 upNdown = 1;
             }
         }
     }
-    if(upNdown < 3){
-        score += 10;
-    }
-    else{
-        score += 10 / upNdown;
-    }
+    score += upNdown < 3 ? 10 : 10 / upNdown;
     return score;
 }
 
 int FitnessScore(const vector<Note>& m) {
-    int IWeight = 1; // Melody Weight
-    int RWeight = 1; // Rhythmic Weight
-    int VWeight = 1; // Variety Weight
-    return ((IWeight * IScore(m) + RWeight * RScore(m) + VWeight * VScore(m))/m.size());
+    int IWeight = 1, RWeight = 1, VWeight = 1;
+    return ((IWeight * IScore(m) + RWeight * RScore(m) + VWeight * VScore(m)) / m.size());
 }
 
-vector<Note> generateMelody(int size) {
+// =========================
+// Updated generateMelody with pitch range limits
+// =========================
+vector<Note> generateMelody(int size, int minPitch, int maxPitch) {
     srand(static_cast<unsigned int>(time(0)));
-    int p;
-    int l;
+    int p, l;
     int lengths[] = {1, 2, 4, 8, 16};
     vector<Note> melody;
-    
-    // Generate the first note with a random pitch
-    p = rand() % 100 + 1;
+
+    p = rand() % (maxPitch - minPitch + 1) + minPitch;
     l = lengths[rand() % 5];
     melody.push_back(Note(p, l));
 
-    // Generate subsequent notes, each within ±12 steps of the previous note's pitch
     for (int i = 1; i < size; i++) {
         int prevPitch = melody[i - 1].pitch;
-        
-        // Ensure the next note's pitch is within 12 steps of the previous note's pitch
-        p = prevPitch + (rand() % 25 - 12);  // Random number between -12 and +12
-        p = max(0, min(100, p));  // Ensure pitch stays within a reasonable range (e.g., 0 to 100)
-
+        int pitchOffset = rand() % 25 - 12;
+        p = prevPitch + pitchOffset;
+        p = max(minPitch, min(maxPitch, p));
         l = lengths[rand() % 5];
         melody.push_back(Note(p, l));
     }
@@ -204,142 +166,97 @@ vector<Note> generateMelody(int size) {
     return melody;
 }
 
-// =========================
-// Parent Selection Function (Roulette Wheel Selection)
-// =========================
 vector<Note> selectParent(const vector<vector<Note>>& population, const vector<int>& fitnessScores){
     int totalFitness = 0;
-    for (int score : fitnessScores){
-        totalFitness += score;
-    }
+    for (int score : fitnessScores) totalFitness += score;
     int pick = rand() % totalFitness;
     int runningSum = 0;
-    for (int i = 0; i < population.size(); i++){
+    for (int i = 0; i < population.size(); i++) {
         runningSum += fitnessScores[i];
-        if (runningSum >= pick){
-            return population[i];
-        }
+        if (runningSum >= pick) return population[i];
     }
     return population.back();
 }
 
-// =========================
-// Crossover Function
-// =========================
 vector<Note> crossover(const vector<Note>& parent1, const vector<Note>& parent2){
     vector<Note> child;
     for (int i = 0; i < parent1.size(); i++){
-        if (rand() % 2 == 0){
-            child.push_back(parent1[i]);
-        } else {
-            child.push_back(parent2[i]);
-        }
+        child.push_back(rand() % 2 == 0 ? parent1[i] : parent2[i]);
     }
     return child;
 }
 
-// Mutation function
 void mutate(vector<Note>& melody, int mutationRate = 10) {
     int lengths[] = {1, 2, 4, 8, 16};
-
     for (int i = 0; i < melody.size(); i++) {
         if (rand() % 100 < mutationRate) {
-            int pitchChange = rand() % 13 - 6;  // Random value between -6 and 6
+            int pitchChange = rand() % 13 - 6;
             melody[i].pitch += pitchChange;
-
-            if (melody[i].pitch < 0) {
-                melody[i].pitch = 0;
-            } else if (melody[i].pitch > 100) {
-                melody[i].pitch = 100;
-            }
+            melody[i].pitch = max(0, min(100, melody[i].pitch));
 
             int currentLengthIndex = find(begin(lengths), end(lengths), melody[i].length) - begin(lengths);
-            int change = rand() % 3 - 1;  // Random value between -1, 0, and 1
-            currentLengthIndex += change;
-
-            if (currentLengthIndex < 0) currentLengthIndex = 0;
-            if (currentLengthIndex > 4) currentLengthIndex = 4;
-
+            int change = rand() % 3 - 1;
+            currentLengthIndex = max(0, min(4, currentLengthIndex + change));
             melody[i].length = lengths[currentLengthIndex];
         }
     }
 }
 
-// =========================
-// Evolve Function
-// =========================
-void evolveMelodies(int populationSize = 10, int generations = 20, int melodySize = 8){
+// Evolve Function with range
+void evolveMelodies(int populationSize = 10, int generations = 20, int melodySize = 8) {
     srand(time(0));
+
+    int minPitch = noteToPitch("F#", 3); // F#3
+    int maxPitch = noteToPitch("E", 6);  // E6
+
     vector<vector<Note>> population;
-    int bestIndex = 0;
     vector<int> fitnessScores;
     vector<vector<Note>> newPopulation;
-    vector<Note> parent1;
-    vector<Note> parent2;
-    vector<Note> child;
-    vector<Note> bestMelody;
+    vector<Note> parent1, parent2, child, bestMelody;
 
-    // Generate initial population
     for (int i = 0; i < populationSize; i++) {
-        population.push_back(generateMelody(melodySize));
+        population.push_back(generateMelody(melodySize, minPitch, maxPitch));
     }
 
-    // Evolve the population over generations
     for (int gen = 0; gen < generations; gen++) {
         fitnessScores.clear();
-        for (const auto& melody : population) {
+        for (const auto& melody : population)
             fitnessScores.push_back(FitnessScore(melody));
-        }
 
-        bestIndex = 0;
-        for (int i = 1; i < fitnessScores.size(); i++) {
-            if (fitnessScores[i] > fitnessScores[bestIndex]) {
-                bestIndex = i;
-            }
-        }
-
+        int bestIndex = max_element(fitnessScores.begin(), fitnessScores.end()) - fitnessScores.begin();
         bestMelody = population[bestIndex];
-
         newPopulation.clear();
-        newPopulation.push_back(bestMelody); // Keep the best melody
+        newPopulation.push_back(bestMelody);
 
         while (newPopulation.size() < populationSize) {
             parent1 = selectParent(population, fitnessScores);
             parent2 = selectParent(population, fitnessScores);
-
             child = crossover(parent1, parent2);
-
             mutate(child);
-
             newPopulation.push_back(child);
         }
 
         population = newPopulation;
 
-        cout << "Generation " << gen + 1 << ": Best Melody Fitness = " << fitnessScores[bestIndex] << endl;
-
-        cout << "Best Melody: " << endl;
-        readNotation(bestMelody);  // This will print the best melody notation directly
-
+        cout << "\nGeneration " << gen + 1 << ": Best Melody Fitness = " << fitnessScores[bestIndex] << endl;
+        cout << "Best Melody: ";
+        readNotation(bestMelody);
         cout << "\nFinal Fitness Score: " << FitnessScore(bestMelody) << endl;
     }
 }
 
 int main() {
     evolveMelodies();
-    cout << "\n\n\n";
-     // Test with F#3 and C6
-     string note1 = "A";
-     int octave1 = 0;
- 
-     string note2 = "C";
-     int octave2 = 8;
- 
-     int pitch1 = noteToPitch(note1, octave1);
-     int pitch2 = noteToPitch(note2, octave2);
- 
-     cout << "\nTest 1: " << note1 << octave1 << " -> Pitch: " << pitch1;
- 
-     cout << "\nTest 2: " << note2 << octave2 << " -> Pitch: " << pitch2;
+
+    cout << "\n\nPitch Tests:\n";
+    string note1 = "F#"; int octave1 = 3;
+    string note2 = "E"; int octave2 = 6;
+
+    int pitch1 = noteToPitch(note1, octave1);
+    int pitch2 = noteToPitch(note2, octave2);
+
+    cout << note1 << octave1 << " -> Pitch: " << pitch1 << endl;
+    cout << note2 << octave2 << " -> Pitch: " << pitch2 << endl;
+
     return 0;
 }
