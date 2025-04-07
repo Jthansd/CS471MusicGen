@@ -467,6 +467,10 @@ int main() {
     int length;
     cout << "Welcome to the AI Music Creator!\nLet's customize our music to your taste :3\nFirst off, what Key would you like your music to be in?\n(1) C major\n(2) C#/Db major\n(3) D major\n(4) D#/Eb major\n(5) E major\n(6) F major\n(7) F#/Gb major\n(8) G major\n(9) G#/Ab major\n(10) A major\n(11) A#/Bb major\n(12) B major\nEnter a number" << endl;
     cin >> key;
+    while(key < 1 || key > 12){
+        cout << "Invalid response, please pick a value between 1 and 12 :)" << endl;
+        cin >> key;
+    }
 
     string pitchWithOctave = toLetter(key - 1);
     
@@ -477,7 +481,12 @@ int main() {
     }
     int numNotes;
     cout << "Good choice! Now how many notes would you like to generate? (4-64)";
+    
     cin >> numNotes;
+    while(numNotes < 4 || numNotes > 64){
+        cout << "Invalid response, please pick a value between 4 and 64 :)" << endl;
+        cin >> numNotes;
+    }
     cout << "Nice! Generating melodies in the key of " << pitchWithOctave << " major, with " << numNotes << " notes!" << endl;
 
     /*vector<Note> melody1 = {Note(0, 4), Note(2, 4), Note(4, 4), Note(5, 4), Note(7, 4), Note(9, 4), Note(11, 4)};
