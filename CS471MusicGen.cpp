@@ -84,7 +84,10 @@ void readNotation(const vector<Note>& m) {
 int IScore(const vector<Note>& m) {
     int score = 0;
     for (int i = 0; i < m.size() - 1; i++) {
-        if(abs(m[i].pitch - m[i + 1].pitch) % 12 < 8){
+        if(m[i].pitch == m[i+1].pitch){
+            score -= 5;
+        }
+        else if(abs(m[i].pitch - m[i + 1].pitch) % 12 < 8){
             score += 10 - abs(m[i].pitch - m[i + 1].pitch) % 12;
         }
     }
@@ -103,13 +106,43 @@ int RScore(const vector<Note>& m) {
             if (lengths[j] == m[i + 1].length) length2 = j;
         }
         dif = abs(length1 - length2);
-        switch (dif) {
-            case 0: score += 10; break;
-            case 1: score += 8; break;
-            case 2: score += 6; break;
-            case 3: score += 4; break;
-            case 4: score += 2; break;
+        if(m[i].length == 8){
+            switch(dif){
+                case 0: score += 10; break;
+                case 1: score += 8; break;
+                case 2: score += 4; break;
+                case 3: score -= 2; break;
+                case 4: score -= 4; break;
+            }
         }
+        else if(m[i].length == 6){
+            switch(dif){
+                case 0: score += 4; break;
+                case 1: score += 8; break;
+                case 2: score += 10; break;
+                case 3: score -= 2; break;
+                case 4: score -= 4; break;
+            }
+        }
+        else if(m[i].length == 4){
+            switch(dif){
+                case 0: score += 8; break;
+                case 1: score += 10; break;
+                case 2: score += 4; break;
+                case 3: score -= 2; break;
+                case 4: score -= 4; break;
+            }
+        }
+        else{
+            switch(dif){
+                case 0: score -= 2; break;
+                case 1: score += 0; break;
+                case 2: score += 10; break;
+                case 3: score += 8; break;
+                case 4: score -= 4; break;
+            }
+        }
+
         if(m[i].length == 8 || m[i].length == 6){
             if(offbeat == false){
                 offbeat = true;
@@ -122,10 +155,14 @@ int RScore(const vector<Note>& m) {
         }
         else{
             if(offbeat == false){
-                score += 5;
-            }
-            else if(offbeat == true && offbeatLength < 3){
                 score += 10;
+            }
+            else if(offbeat == true){
+                if(offbeatLength < 3)
+                    score += 5;
+                else{
+                    score -= 5;
+                }
             }   
         }
     }
@@ -154,6 +191,7 @@ int VScore(const vector<Note>& m) {
                 upNdown = 1;
             }
         }
+        
     }
     score += upNdown < 3 ? 10 : 10 / upNdown;
     return score;
@@ -250,7 +288,7 @@ vector<Note> generateMelody(int size, int minPitch, int maxPitch, int key) {
         // Choose a scale tone near the previous one
         int prevPitch = melody[i - 1].pitch;
 
-        // Collect scale tones within a +/-12 semitone range
+        // Collect scale tones within a +/-7 semitone range
         vector<int> nearby;
         for (int pitch : scalePitches) {
             if (abs(pitch - prevPitch) <= 7) {
@@ -269,11 +307,32 @@ vector<Note> generateMelody(int size, int minPitch, int maxPitch, int key) {
         melody.push_back(Note(p, l));
     }
 
-    // --- Final Note: tonic again (half note) ---
-    melody.push_back(Note(tonicPitch, 2));  // 2 = half note
+    // --- Final Note: tonic again, in closest octave to second-last note ---
+    int secondLastPitch = melody[melody.size() - 1].pitch;
+    int secondLastOctave = secondLastPitch / 12;
+    int bestTonic = -1;
+    int bestDistance = 999;
+
+    for (int pitch : scalePitches) {
+        if ((pitch % 12) == (basePitch % 12)) {
+            int octave = pitch / 12;
+            int dist = abs(octave - secondLastOctave);
+            if (dist < bestDistance) {
+                bestTonic = pitch;
+                bestDistance = dist;
+            }
+        }
+    }
+
+    if (bestTonic == -1) {
+        bestTonic = tonicPitch;
+    }
+
+    melody.push_back(Note(bestTonic, 2));  // 2 = half note
 
     return melody;
 }
+
 
 
 vector<Note> selectParent(const vector<vector<Note>>& population, const vector<int>& fitnessScores){
@@ -364,12 +423,8 @@ void mutate(vector<Note>& melody, int minPitch, int maxPitch, int key, int mutat
 
 
 // Evolve Function with range
-void evolveMelodies(int populationSize, int generations, int melodySize, int key) {
+void evolveMelodies(int populationSize, int generations, int melodySize, int key,  int minPitch = 42, int maxPitch = 69) {
     srand(time(0));
-
-    
-    int minPitch = 42; // F#3
-    int maxPitch = 76;  // E6
 
     vector<vector<Note>> population;
     vector<int> fitnessScores;
@@ -420,8 +475,10 @@ int main() {
     if (parenPos != -1) {
         pitchWithOctave = pitchWithOctave.substr(0, parenPos);  // Get only the pitch name (before '(')
     }
-
-    cout << "Good choice! Generating melodies in the key of " << pitchWithOctave << " major" << endl;
+    int numNotes;
+    cout << "Good choice! Now how many notes would you like to generate? (4-64)";
+    cin >> numNotes;
+    cout << "Nice! Generating melodies in the key of " << pitchWithOctave << " major, with " << numNotes << " notes!" << endl;
 
     /*vector<Note> melody1 = {Note(0, 4), Note(2, 4), Note(4, 4), Note(5, 4), Note(7, 4), Note(9, 4), Note(11, 4)};
 
@@ -435,9 +492,9 @@ int main() {
     
     */
 
-    evolveMelodies(10, 20, 16, key);
+    evolveMelodies(10, 20, numNotes, key);
 
-    cout << "\n\nPitch Tests:\n";
+    /*cout << "\n\nPitch Tests:\n";
     string note1 = "F#"; int octave1 = 3;
     string note2 = "E"; int octave2 = 6;
 
@@ -447,6 +504,6 @@ int main() {
     cout << note1 << octave1 << " -> Pitch: " << pitch1 << endl;
     cout << note2 << octave2 << " -> Pitch: " << pitch2 << endl;
 
-
+    */
     return 0;
 }
