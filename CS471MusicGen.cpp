@@ -7,6 +7,9 @@
 #include <iterator> 
 using namespace std;
 
+/*
+Welcome to the CS471 MusicGen Project, group 10, Jonathan Wilson, Elijah Munoz, Lorenzo Hobbs
+*/
 /*======================================================================================================
 int noteToPitch(string note, int octave)
 
