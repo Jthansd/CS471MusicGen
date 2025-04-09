@@ -5,6 +5,7 @@
 #include <ctime>  
 #include <algorithm> 
 #include <iterator> 
+#include <utility>
 using namespace std;
 
 /*
@@ -346,7 +347,7 @@ int key = value of the key signature to be used (1 - 12)
 =================================================================================*/
 int FitnessScore(const vector<Note>& m, int key) {
     int IWeight = 1, RWeight = 1, VWeight = 1/*, KWeight = 1*/; // weight is an optional variable we can use to increase the importance of any of the scoring functions
-    return((IWeight * IScore(m) + RWeight * RScore(m) + VWeight * VScore(m)/* + KWeight * KScore(m, key)*/)/m.size());
+    return((IWeight * IScore(m) + RWeight * RScore(m) + VWeight * VScore(m)/* + KWeight * KScore(m, key)*/));
 }
 
 /*==============================================================================
@@ -470,12 +471,20 @@ vector<Note> selectParent(const vector<vector<Note>>& population, const vector<i
     return population.back();
 }
 
-vector<Note> crossover(const vector<Note>& parent1, const vector<Note>& parent2){
-    vector<Note> child;
-    for (int i = 0; i < parent1.size(); i++){
-        child.push_back(rand() % 2 == 0 ? parent1[i] : parent2[i]);
+pair<vector<Note>, vector<Note>> crossover(const vector<Note>& parent1, const vector<Note>& parent2, int crossoverPoint) {
+    vector<Note> child1, child2;
+
+    for (int i = 0; i < parent1.size(); i++) {
+        if (i <= crossoverPoint) {
+            child1.push_back(parent1[i]);
+            child2.push_back(parent2[i]);
+        } else {
+            child1.push_back(parent2[i]);
+            child2.push_back(parent1[i]);
+        }
     }
-    return child;
+
+    return {child1, child2};
 }
 
 /*==============================================================================
@@ -568,13 +577,13 @@ int key = value of the key signature to be used
 int min Pitch = min value of pitch to be selected. For this program we will use 42 because it is the lowest pitch a trumpet can play
 int max Pitch = max value of pitch to be selected. For this program we will use 69 because that is the highest note in our comfortable playing range from trumpet
 =================================================================================*/
-void evolveMelodies(int populationSize, int generations, int melodySize, int key,  int minPitch = 42, int maxPitch = 69) {
+void evolveMelodies(int populationSize, int generations, int melodySize, int key, int minPitch = 42, int maxPitch = 69) {
     srand(time(0));
 
-    vector<vector<Note>> population; //stores a vector of melodies
-    vector<int> fitnessScores;//stores fitness scores
-    vector<vector<Note>> newPopulation;//next generation
-    vector<Note> parent1, parent2, child, bestMelody;
+    vector<vector<Note>> population;
+    vector<int> fitnessScores;
+    vector<vector<Note>> newPopulation;
+    vector<Note> parent1, parent2, bestMelody;
 
     for (int i = 0; i < populationSize; i++) {
         population.push_back(generateMelody(melodySize, minPitch, maxPitch, key));
@@ -588,14 +597,22 @@ void evolveMelodies(int populationSize, int generations, int melodySize, int key
         int bestIndex = max_element(fitnessScores.begin(), fitnessScores.end()) - fitnessScores.begin();
         bestMelody = population[bestIndex];
         newPopulation.clear();
-        newPopulation.push_back(bestMelody);
+        newPopulation.push_back(bestMelody); // Elitism: keep best melody
 
-        while (newPopulation.size() < populationSize) {
+        while (newPopulation.size() < populationSize - 1) {
             parent1 = selectParent(population, fitnessScores);
             parent2 = selectParent(population, fitnessScores);
-            child = crossover(parent1, parent2);
-            mutate(child, minPitch, maxPitch, key);
-            newPopulation.push_back(child);
+
+            int crossoverPoint = 1 + rand() % (melodySize - 2); // Safe crossover point
+            auto [child1, child2] = crossover(parent1, parent2, crossoverPoint);
+
+            mutate(child1, minPitch, maxPitch, key);
+            mutate(child2, minPitch, maxPitch, key);
+
+            newPopulation.push_back(child1);
+            if (newPopulation.size() < populationSize) {
+                newPopulation.push_back(child2);
+            }
         }
 
         population = newPopulation;
@@ -603,7 +620,10 @@ void evolveMelodies(int populationSize, int generations, int melodySize, int key
         cout << "\nGeneration " << gen + 1 << ": Best Melody Fitness = " << fitnessScores[bestIndex] << endl;
         cout << "Best Melody: ";
         readNotation(bestMelody);
-        cout << "\nIScore = " << IScore(bestMelody) << "\nRScore = " << RScore(bestMelody) << "\nVScore = " << VScore(bestMelody) /*<< "\nKScore =" << KScore(bestMelody, key)*/ << "\nFinal Fitness Score: " << FitnessScore(bestMelody, key) << endl;
+        cout << "\nIScore = " << IScore(bestMelody)
+             << "\nRScore = " << RScore(bestMelody)
+             << "\nVScore = " << VScore(bestMelody)
+             << "\nFinal Fitness Score: " << FitnessScore(bestMelody, key) << endl;
     }
 }
 
@@ -635,7 +655,7 @@ int main() {
     cout << "Nice! Generating melodies in the key of " << pitchWithOctave << " major, with " << numNotes << " notes!" << endl;
 
 
-    evolveMelodies(10, 20, numNotes, key);
+    evolveMelodies(10, 50, numNotes, key);
 
     
     return 0;
