@@ -599,22 +599,49 @@ void evolveMelodies(int populationSize, int generations, int melodySize, int key
         newPopulation.clear();
         newPopulation.push_back(bestMelody); // Elitism: keep best melody
 
-        while (newPopulation.size() < populationSize - 1) {
-            parent1 = selectParent(population, fitnessScores);
-            parent2 = selectParent(population, fitnessScores);
+        while (newPopulation.size() < populationSize) {
+            vector<Note> parent1 = selectParent(population, fitnessScores);
+            vector<Note> parent2 = selectParent(population, fitnessScores);
 
-            int crossoverPoint = 1 + rand() % (melodySize - 2); // Safe crossover point
+            // Fast check: If fitness differs, melodies must differ
+            bool parentsDiffer = (FitnessScore(parent1, key) != FitnessScore(parent2, key));
+
+            // If fitness is same, compare note-by-note
+            if (!parentsDiffer) {
+                parentsDiffer = parent1.size() != parent2.size();
+                for (size_t i = 0; !parentsDiffer && i < parent1.size(); i++) {
+                    if (parent1[i].pitch != parent2[i].pitch || parent1[i].length != parent2[i].length) {
+                        parentsDiffer = true;
+                    }
+                }
+            }
+
+            if (parentsDiffer) {
+                cout << "\n--- Parent 1 (Fitness: " << FitnessScore(parent1, key) << ") ---\n";
+                readNotation(parent1);
+                cout << "\n--- Parent 2 (Fitness: " << FitnessScore(parent2, key) << ") ---\n";
+                readNotation(parent2);
+            }
+
+            /* Rest of your existing code (crossover/mutation) remains unchanged */
+            int crossoverPoint = 1 + rand() % (melodySize - 2);
             auto [child1, child2] = crossover(parent1, parent2, crossoverPoint);
-
             mutate(child1, minPitch, maxPitch, key);
             mutate(child2, minPitch, maxPitch, key);
+
+            if (parentsDiffer) {
+                cout << "\n>>> Child 1 <<<\n";
+                readNotation(child1);
+                cout << "\n>>> Child 2 <<<\n";
+                readNotation(child2);
+                cout << "\n-------------------";
+            }
 
             newPopulation.push_back(child1);
             if (newPopulation.size() < populationSize) {
                 newPopulation.push_back(child2);
             }
         }
-
         population = newPopulation;
 
         cout << "\nGeneration " << gen + 1 << ": Best Melody Fitness = " << fitnessScores[bestIndex] << endl;
