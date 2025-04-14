@@ -6,6 +6,7 @@
 #include <algorithm> 
 #include <iterator> 
 #include <utility>
+#include <fstream>
 using namespace std;
 
 /*
@@ -23,6 +24,102 @@ int octave = value indicating octave of the note. Although this value can techin
 music generally only takes place between octave 0 and 8
 
 =========================================================================================================*/
+/*==============================================================================
+struct Note
+
+We use a struct as a structure for notes to be created with. Notes hold the values "pitch" and "length"
+which represent the Notes pitch and note length respectively
+
+int pitch = holds any value although realistically should only be assigned a value 0 - 100. 0 represents pitch C(0), 100 represents E(8)
+
+int length = a value representing note length. Values include "1, 2, 4, 6, 8, 16" to represent whole notes thorugh half notes
+
+=================================================================================*/
+struct Note {
+    int pitch;
+    int length;
+    Note(int p, int l) : pitch(p), length(l) {}
+};
+
+string xmlLength(int l) {
+    switch (l) {
+        case 1: return "whole";
+        case 2: return "half";
+        case 4: return "quarter";
+        case 6: return "quarter"; // dotted quarter
+        case 8: return "eighth";
+        case 16: return "16th";
+        default: return "quarter";
+    }
+}
+
+void exportToMusicXML(const vector<Note>& melody, const string& filename) {
+    ofstream file(filename);
+    if (!file.is_open()) {
+        cerr << "Error opening file for writing.\n";
+        return;
+    }
+
+    file << "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\n";
+    file << "<!DOCTYPE score-partwise PUBLIC \"-//Recordare//DTD MusicXML 3.1 Partwise//EN\" \"http://www.musicxml.org/dtds/partwise.dtd\">\n";
+    file << "<score-partwise version=\"3.1\">\n";
+    file << "<part-list>\n";
+    file << "  <score-part id=\"P1\">\n";
+    file << "    <part-name>Music</part-name>\n";
+    file << "  </score-part>\n";
+    file << "</part-list>\n";
+    file << "<part id=\"P1\">\n";
+    file << "  <measure number=\"1\">\n";
+    file << "    <attributes>\n";
+    file << "      <divisions>1</divisions>\n";
+    file << "      <key><fifths>0</fifths></key>\n";
+    file << "      <time><beats>4</beats><beat-type>4</beat-type></time>\n";
+    file << "      <clef><sign>G</sign><line>2</line></clef>\n";
+    file << "    </attributes>\n";
+
+    for (const Note& n : melody) {
+        int pitch = n.pitch;
+        int octave = pitch / 12;
+        int index = pitch % 12;
+        string step;
+        switch(index) {
+            case 0: step = "C"; break;
+            case 1: step = "C"; break; // C#
+            case 2: step = "D"; break;
+            case 3: step = "D"; break; // Eb
+            case 4: step = "E"; break;
+            case 5: step = "F"; break;
+            case 6: step = "F"; break; // F#
+            case 7: step = "G"; break;
+            case 8: step = "G"; break; // Ab
+            case 9: step = "A"; break;
+            case 10: step = "A"; break; // Bb
+            case 11: step = "B"; break;
+        }
+
+        string alter = "";
+        if (index == 1 || index == 3 || index == 6 || index == 8 || index == 10) alter = "1";
+
+        file << "    <note>\n";
+        file << "      <pitch>\n";
+        file << "        <step>" << step << "</step>\n";
+        if (!alter.empty()) file << "        <alter>" << alter << "</alter>\n";
+        file << "        <octave>" << octave << "</octave>\n";
+        file << "      </pitch>\n";
+        file << "      <duration>1</duration>\n";
+        file << "      <type>" << xmlLength(n.length) << "</type>\n";
+        if (n.length == 6) file << "      <dot/>\n"; // dotted quarter
+        file << "    </note>\n";
+    }
+
+    file << "  </measure>\n";
+    file << "</part>\n";
+    file << "</score-partwise>\n";
+    file.close();
+}
+
+
+
 int noteToPitch(string note, int octave) {
     //normalize pitch names. I.E. Bb and A# are enharmonics thus musically the same, 
     //however for this function we will only work with sharps(#) rather than flats (b)
@@ -60,22 +157,7 @@ int noteToPitch(string note, int octave) {
 }
 
 
-/*==============================================================================
-struct Note
 
-We use a struct as a structure for notes to be created with. Notes hold the values "pitch" and "length"
-which represent the Notes pitch and note length respectively
-
-int pitch = holds any value although realistically should only be assigned a value 0 - 100. 0 represents pitch C(0), 100 represents E(8)
-
-int length = a value representing note length. Values include "1, 2, 4, 6, 8, 16" to represent whole notes thorugh half notes
-
-=================================================================================*/
-struct Note {
-    int pitch;
-    int length;
-    Note(int p, int l) : pitch(p), length(l) {}
-};
 
 /*==============================================================================
 void printNote(Note n)
@@ -652,7 +734,12 @@ void evolveMelodies(int populationSize, int generations, int melodySize, int key
              << "\nVScore = " << VScore(bestMelody)
              << "\nFinal Fitness Score: " << FitnessScore(bestMelody, key) << endl;
     }
+    exportToMusicXML(bestMelody, "best_melody.musicxml");
+    cout << "Exported best melody to best_melody.musicxml\n";
+
 }
+
+
 
 int main() {
     int key;
